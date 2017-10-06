@@ -15,6 +15,7 @@ const database = admin.database();
 
 exports.optinFunction = functions.https.onRequest((req, res) => {
 
+    var triggermsg = 'Can I help you find anything else?';
     cors(req, res, () => {
         //let actionReq = req.body.result.action;
         let UserID = req.query.userid;
@@ -47,7 +48,9 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
                     msg: snapshot.val().WelcomeMsg,
                     subtitle: snapshot.val().subtitle,
                     title: snapshot.val().title,
-                    imgurl: snapshot.val().imageurl
+                    imgurl: snapshot.val().imageurl,
+                    optinid: snapshot.val().optinid,
+                    triggertext: triggermsg
                 });
 
                 res.send(responseMsg);
@@ -82,7 +85,8 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
                         subtitle: snapshot.val().subtitle,
                         title: snapshot.val().title,
                         optinid: rows.result.fulfillment.speech.id,
-                        imgurl: snapshot.val().imageurl
+                        imgurl: snapshot.val().imageurl,
+                        triggertext: triggermsg
                     });
 
                     res.send(responseMsg);

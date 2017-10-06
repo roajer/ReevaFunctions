@@ -24,9 +24,18 @@ exports.productCreate = functions.database
                             const productID = event.params.productID;
                             console.log(productID);
                             console.log(product);
+                            console.log(userId);
+                            
                             product.objectID = productID;
 
-                            index.saveObject(product, function(err, content) {
+                            index.saveObject({
+                                productname: 'SEO book',
+                                proddesc: 'Great search engine optimization ebook for marketers',
+                                produrl: 'https://www.anfks.com/dskjn/rs',
+                                prodtags: 'money, recipes, kids',
+                                userId: userId,
+                                objectID: productID
+                            }, function(err, content) {
                                     if (err) {
                                      throw err;
                                         }

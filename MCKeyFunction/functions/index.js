@@ -237,30 +237,39 @@ exports.wpSearchFunction = functions.https.onRequest((req, res) => {
 
   cors(req, res, () => {
 
-    var emailID = 'roajer@rjs.com';
-    var tokenid = '';
-    var groupID = '';
-    var name = 'roajer';
+    var search = req.query.query;
+    var userid = req.query.userid;
 
-    admin.database().ref('/users/' + userid+'/blogurl').once('value').then(function(snapshot) {
-var blogurl = snapshot.val().blogurl;
+admin.database().ref(`/users/${userid}/blogurl`).once('value').then(function(snapshot) {
+var blogurl = snapshot.val();
 
 request.get(blogurl+'/wp-json/wp/v2/posts')
+            .query({ search: search })
               //  .set('Accept', 'application/json')
               //  .set('X-MailerLite-ApiKey', tokenid )
                     .end((err, result) => {
                         if (err) {
                             res.status(500).json(err);
                         } else {
-
+                            var output = {}; var data = [];
                             for(var i = 0; i < 5; i++) {
                                 //result.body
+                              //  console.log(result.body[i]);
+
+                              output[i] = {
+                                  name: result.body[i].title.rendered,
+                                  url: result.body[i].link
+                              };                                                              
+                              //  output['title'] = result.body[i].title.rendered;
+                              //  output['url'] = result.body[i].link;
+                               // data[i]=output;
+                            console.log('op in for', output);
                             }
+                            data.push(output); 
+                        //for(var attributename in result.body){}
+                            console.log(output);
 
-                            //for(var attributename in result.body){}
-
-
-                            res.json(result.body);
+                            res.json(data);
                         }
                     });
 
