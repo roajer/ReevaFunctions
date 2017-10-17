@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const cors = require('cors')({origin: true});
 
-
+const BigQuery = require('@google-cloud/bigquery');
 var request = require('superagent');
 var querystring = require('querystring');
 
@@ -15,6 +15,14 @@ var https = require('https');
 const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
 const database = admin.database();
+
+// Your Google Cloud Platform project ID
+const projectId = 'reeva-d9399';
+
+// Instantiates a client
+const bigquery = BigQuery({
+        projectId: projectId
+         });
 
 exports.mcKeyFunction = functions.https.onRequest((req, res) => {
 
@@ -163,8 +171,7 @@ exports.emailSubFunction = functions.https.onRequest((req, res) => {
   cors(req, res, () => {
 
     var emailID = req.query.emailid;
-    var tokenid = '';
-    var groupID = '';
+    var sessionID = req.query.sessionid;
     var name = req.query.name;
     var userid = req.query.userid;
 // First get the integration data from DB   
@@ -180,7 +187,7 @@ if (snapshot.val().emailProvider =='mailchimp' ){
 }else if (snapshot.val().emailProvider =='mailerlite'){
     mailerliteSub(groupID,tokenid );
 }
-
+addBigQuery();
 });
 
 function mailerliteSub(groupID, tokenid){
@@ -201,8 +208,6 @@ request.post('http://api.mailerlite.com/api/v2/groups/'+groupID+'/subscribers')
                     });
 }
 
-
-
 function mailchimpSub(integrationListID,api_endpoint,access_token ){
 
 request.post(api_endpoint + '/3.0/lists/'+integrationListID+'/members')
@@ -221,12 +226,42 @@ request.post(api_endpoint + '/3.0/lists/'+integrationListID+'/members')
                             console.log(err);
                         } else {
                             res.json(result.statusCode);
+                    
                         }
                     });
 
 }
+function addBigQuery(){
+    
+    var date = new Date('YYYY-MM-DD');
+      const rows = [{
+        sessionID: sessionID ,
+        emailID: emailID ,
+        userName: name ,
+              blogUserID: userid,
+              Date: date
+            }];
+    
+            bigquery
+            .dataset('reevatest')
+            .table('web_analytics_copy')
+            .insert(rows)
+            .then((insertErrors) => {
+                  console.log('Inserted in Big Query');
+               //   rows.forEach((row) => console.log(row));
+                  if (insertErrors && insertErrors.length > 0 && insertErrors.errors) {
+                    console.log('Insert errors:');
+                    insertErrors.forEach((err) => console.error(err.errors.message));
+            }
+            })
+            .catch((err) => {
+                  console.error('ERROR{:', err);
+            });
+}
 
-  });
+});
+
+
 
 });
 

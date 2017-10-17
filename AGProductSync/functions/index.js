@@ -4,6 +4,8 @@ var algoliasearch = require('algoliasearch');
 var algoliasearch = require('algoliasearch');
 var client = algoliasearch('QQ0QXOBZRJ', '566a67d110d2a91c0453780cbcfa495e');
 var index = client.initIndex('products');
+
+var optinindex = client.initIndex('optin');
 admin.initializeApp(functions.config().firebase);
 
 
@@ -19,6 +21,7 @@ admin.initializeApp(functions.config().firebase);
 exports.productCreate = functions.database
                         .ref(`/products/{userId}/{productID}`)
                         .onWrite(event => {
+                            var date = new Date();
                             var product = event.data.val();
                             const userId = event.params.userId;
                             const productID = event.params.productID;
@@ -29,12 +32,13 @@ exports.productCreate = functions.database
                             product.objectID = productID;
 
                             index.saveObject({
-                                productname: 'SEO book',
-                                proddesc: 'Great search engine optimization ebook for marketers',
-                                produrl: 'https://www.anfks.com/dskjn/rs',
-                                prodtags: 'money, recipes, kids',
+                                productname: product.productName,
+                                proddesc: product.productDescription,
+                                produrl: product.productURL,
+                                prodtags: product.productTag,
                                 userId: userId,
-                                objectID: productID
+                                objectID: productID,
+                                currentdate: date
                             }, function(err, content) {
                                     if (err) {
                                      throw err;
@@ -55,3 +59,44 @@ exports.productDelete = functions.database
   });
 
                         });
+
+ exports.optinCreate = functions.database
+                        .ref(`/optin/{userId}/{optinID}`)
+                        .onWrite(event => {
+                            var date = new Date();
+                            var optin = event.data.val();
+                            const userId = event.params.userId;
+                            const optinID = event.params.optinID;
+                            console.log(optinID);
+                            console.log(optin);
+                            console.log(userId);
+                            
+                            optin.objectID = optinID;
+
+                            index.saveObject({
+                                optinname: optin.productName,
+                                optindesc: optin.productDescription,
+                                optinurl: optin.productURL,
+                                optintags: optin.productTag,
+                                userId: userId,
+                                objectID: optinID,
+                                currentdate: date
+                            }, function(err, content) {
+                                    if (err) {
+                                     throw err;
+                                        }
+                        console.log('Firebase<>Algolia object saved', optin.objectID);
+
+                        });
+                    });
+
+  exports.optinDelete = functions.database
+                    .ref(`/optin/{userId}/{optinID}`)
+                    .onDelete(event => {
+                        const optinID = event.params.optinID;
+                    index.deleteObject(optinID, function(err, content) {   
+                        if (err) {      throw err;    }
+                    console.log('Firebase<>Algolia object deleted', optinID);
+});
+
+                    });

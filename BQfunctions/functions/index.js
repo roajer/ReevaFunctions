@@ -38,7 +38,7 @@ exports.queryFunction = functions.https.onRequest((req, res) => {
     console.log("FormatStr ",strformattedDate);
     
  if(actionReq && actionReq === "email"){
-        emailReport(req,res,https, strformattedDate, endformattedDate,UserID);
+        emailReport();
      } else if
      (actionReq && actionReq === "topic"){
         topicReport(req,res,https);
@@ -65,7 +65,7 @@ exports.queryFunction = functions.https.onRequest((req, res) => {
   
   // The project ID to use, e.g. "your-project-id"
   // const projectId = "your-project-id";
-function emailReport(req,res,https, strdate, enddate, UserID){
+function emailReport(){
 
 const BigQuery = require('@google-cloud/bigquery');
 // Your Google Cloud Platform project ID
@@ -77,8 +77,9 @@ const bigquery = BigQuery({
   projectId: projectId
 });
   // The SQL query to run
-  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy WHERE _PARTITIONTIME between TIMESTAMP("`+strdate+`") and TIMESTAMP("`+enddate+`")`;
+  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy WHERE blogUserID = '`+UserID+`' AND _PARTITIONTIME between TIMESTAMP("`+strformattedDate+`") and TIMESTAMP("`+endformattedDate+`")  AND emailID IS NOT NULL`;
  
+  console.log('sqlQuery: ',sqlQuery);
   // Query options list: https://cloud.google.com/bigquery/docs/reference/v2/jobs/query
   const options = {
     query: sqlQuery,
@@ -116,7 +117,9 @@ const bigquery = BigQuery({
   projectId: projectId
 });
   // The SQL query to run
-  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy LIMIT 1000`;
+  //const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy LIMIT 1000`;
+
+  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy WHERE blogUserID = '`+UserID+`' AND _PARTITIONTIME between TIMESTAMP("`+strformattedDate+`") and TIMESTAMP("`+endformattedDate+`")  AND resolvedEntities IS NOT NULL`;
  
   // Query options list: https://cloud.google.com/bigquery/docs/reference/v2/jobs/query
   const options = {
@@ -154,7 +157,7 @@ const bigquery = BigQuery({
   projectId: projectId
 });
   // The SQL query to run
-  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy LIMIT 1000`;
+  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy WHERE blogUserID = '`+UserID+`' AND _PARTITIONTIME between TIMESTAMP("`+strformattedDate+`") and TIMESTAMP("`+endformattedDate+`")  AND resolvedProducts IS NOT NULL`;
  
   // Query options list: https://cloud.google.com/bigquery/docs/reference/v2/jobs/query
   const options = {
@@ -191,7 +194,7 @@ const bigquery = BigQuery({
   projectId: projectId
 });
   // The SQL query to run
-  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy LIMIT 1000`;
+  const sqlQuery = `SELECT * FROM reevatest.web_analytics_copy WHERE blogUserID = '`+UserID+`' AND _PARTITIONTIME between TIMESTAMP("`+strformattedDate+`") and TIMESTAMP("`+endformattedDate+`")  AND  userQueries IS NOT NULL`;
  
   // Query options list: https://cloud.google.com/bigquery/docs/reference/v2/jobs/query
   const options = {

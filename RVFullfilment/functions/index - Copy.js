@@ -35,23 +35,12 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
      /*  if (req.body.result.contexts.parameters.optinflag !== null && req.body.result.contexts.parameters.optinflag !== 'undefined'){
         let optinFlag = req.body.result.contexts.parameters.optinflag;    
        } */
-       if("optinFlag" in req.body.result.contexts){
-        let optinFlag = req.body.result.contexts.find(function(element){
-          return ( (element.name = 'context_number_one') && element.parameters.optinflag)
-         }).parameters.optinflag; 
-        console.log("optinFlag is in parameters");
-      }else{
-         console.log("optinFlag not in parameters");
-      }
 
+    let optinFlag = req.body.result.contexts.find(function(element){
+      return ( (element.name = 'context_number_one') && element.parameters.optinflag)
+     }).parameters.optinflag; 
 
-    let optinFlag = 'false';
-
-    var forbidden = [userid, 'great', 'hi', 'hello', 'yes', 'sure' ];     
-    
-    var speech ='';
-
-    var dataArray=[];
+    var forbidden = [userid, 'great', 'hi', 'hello'];       
 
     if(actionReq && actionReq === "EmailSubScription"){
             emailSubscription();
@@ -67,26 +56,17 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
               }
               tempCnt+=1;
               }
-
               console.log(searchText);
-              if (searchText && searchText.indexOf("") == -1){
-                speech = 'Well that one was bit tricky for me, can you try asking little differently? ';
-                stdResponse(dataArray, speech);
-
-              }else {
               if (optinFlag && optinFlag.indexOf('true') >-1){
                 searchOptin(searchText);
               } else {
                 searchProduct(searchText);
               }
-            }
 
      } else if (actionReq && actionReq === "about") {
         aboutus();
      } else if (actionReq && actionReq === "contacts") {
       contactus();
-   } else if(actionReq && actionReq === "offers"){
-      specialoffers();
    }
 
      function emailSubscription(){
@@ -103,8 +83,7 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
                     console.log("error in cloud email function ", err);
                 } else {
                   console.log("Result from mail function : ", result);
-                  speech = 'You are all set';
-                  stdResponse(dataArray, 'emailid');
+                  sendDefaultResponse("Succesful mail subscription");
                 }
               });
      }
@@ -117,9 +96,9 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
       console.log('Not sure what happend here', snapshot.val());
       if(snapshot.val() != null){
 
-      
+      var dataArray=[];
       let tempresults= index.search(userid+' '+searchText, {
-          "hitsPerPage": "5",
+          "hitsPerPage": "10",
           "page": "0",
           "attributesToRetrieve": "*",
           "facets": "[]"
@@ -136,9 +115,7 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
                };
                   dataArray.push(product);
                 }
-                
-                speech = 'Here are some of the products we found for you';
-                stdResponse(dataArray, speech);
+             stdResponse(dataArray, results.nbHits);
         // call client.destroy() this when you need to stop the node.js client it will release any keepalived connection
              client.destroy();
             }else{     //call Wordpress search
@@ -154,9 +131,6 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
     }).catch(
       (err) => {
       console.log(err);
-      speech = 'Seems like there was some problem, can you try asking differently?';
-      stdResponse(dataArray, speech);
-
     });
   
   addToBigQuery(searchText);
@@ -194,31 +168,28 @@ function wordpressSearch(searchText){
                                    break;
                                  }
                                 }
-                                speech = 'Here are some of the posts you might be interested';
-                                stdResponse(dataArray, speech);
-                              }else{
-                                speech = 'I guess this blog havent posted on this topic yet or try asking differently';
-                                stdResponse(dataArray, speech);
                               }
-                              
+                     stdResponse(dataArray, cnt);
                     }
                   });
           }).catch(
             (err) => {
             console.log(err);
-            speech = 'Seems like there was some problem, can you try asking differently?';
-            stdResponse(dataArray, speech);
           });
   }
 
-function stdResponse(dataArray, speech){
+function stdResponse(dataArray, resultsSize){
   var messagesJson=[];
   var msg ="";
-  var emailid = '';
-  if(speech === 'emailid'){
+  var speech = '';
+
+  if (dataArray.length == 0){
+    speech = 'Hmm, I dint find anything for that query. Try asking differently';
+      } else if (dataArray.length > 10){
     speech = '';
-    emailid='true';
-  }
+      } else {
+    speech = 'Here is what we found for you';
+      }
 
   msg={ 
     "type":4,
@@ -228,8 +199,8 @@ function stdResponse(dataArray, speech){
         "data":dataArray
                 },
       "triggertext":"Is this the content you are looking for?",
-      "emailid": emailid
-      
+      "emailid":'',
+      "optinid":''
       }};
       messagesJson.push(msg);
          
@@ -288,7 +259,7 @@ function addToBigQuery(searchText){
                  });
                  tempresults.then(function(results) {
                   console.log("Promise result for entity values : ",results);
-                  if(results && results.nbHits >0) { 
+                  if(results && results.nbHits >0) {                                    
                     //createWebResponse(results);
                     for (var h in results.hits) {
                   product={
@@ -297,8 +268,7 @@ function addToBigQuery(searchText){
                      };
                         dataArray.push(product);
                       }
-                      speech = results.hits[0].optinName;
-                      stdResponse(dataArray, speech);
+                   stdResponse(dataArray, results.nbHits);
               // call client.destroy() this when you need to stop the node.js client it will release any keepalived connection
                    client.destroy();
                   }
@@ -306,33 +276,15 @@ function addToBigQuery(searchText){
               } 
           }).catch(
             (err) => {
-
             console.log(err);
-            speech ='error';
-            stdResponse(dataArray, speech);
           });
      
          }
 
          function aboutus(){
-          admin.database().ref('users/'+userid+'/aboutus').once('value').then(function(snapshot) {
-            speech =snapshot.val();
-            stdResponse(dataArray, speech);
-          });
 
          }
          function contactus(){
-          admin.database().ref('users/'+userid+'/contactus').once('value').then(function(snapshot) {
-            speech =snapshot.val();
-            stdResponse(dataArray, speech);
-            });
+          
         }
-
-        function specialoffers(){
-          admin.database().ref('users/'+userid+'/special').once('value').then(function(snapshot) {
-            speech =snapshot.val();
-            stdResponse(dataArray, speech);
-            });
-        }
-
 });

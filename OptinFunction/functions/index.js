@@ -50,7 +50,8 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
                     title: snapshot.val().title,
                     imgurl: snapshot.val().imageurl,
                     optinid: snapshot.val().optinid,
-                    triggertext: triggermsg
+                    triggertext: triggermsg,
+                    plan: 'free'
                 });
 
                 res.send(responseMsg);
@@ -68,9 +69,10 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
             var options = {
                 sessionId: SessionID,
                 contexts: [{
-                    name: 'optin',
+                    name: 'context_number_one',
                     parameters: {
-                        'userid': UserID
+                        'userid': UserID,
+                        'optinflag':'true'
                     }
                 }]
             };
@@ -86,7 +88,8 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
                         title: snapshot.val().title,
                         optinid: rows.result.fulfillment.speech.id,
                         imgurl: snapshot.val().imageurl,
-                        triggertext: triggermsg
+                        triggertext: triggermsg,
+                        plan: 'paid'
                     });
 
                     res.send(responseMsg);
