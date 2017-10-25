@@ -45,11 +45,11 @@ exports.optinFunction = functions.https.onRequest((req, res) => {
             admin.database().ref(`/users/${UserID}`).once('value').then(snapshot => {
 
                 var responseMsg = JSON.stringify({
-                    msg: snapshot.val().WelcomeMsg,
-                    subtitle: snapshot.val().subtitle,
+                    msg: snapshot.val().popupmsg,
+                    subtitle: snapshot.val().offer,
                     title: snapshot.val().title,
                     imgurl: snapshot.val().imageurl,
-                    optinid: snapshot.val().optinid,
+                    optinid: 'default',
                     triggertext: triggermsg,
                     plan: 'free'
                 });

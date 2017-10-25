@@ -174,19 +174,24 @@ exports.emailSubFunction = functions.https.onRequest((req, res) => {
     var sessionID = req.query.sessionid;
     var name = req.query.name;
     var userid = req.query.userid;
+    var optinID = req.query.optinid;
 // First get the integration data from DB   
 
 admin.database().ref('/integrations/' + userid).once('value').then(function(snapshot) {
-    tokenid = snapshot.val().tokenid;
-    access_token= snapshot.val().access_token;
-    groupID = snapshot.val().groupID;
-    api_endpoint = snapshot.val().api_endpoint;
-if (snapshot.val().emailProvider =='mailchimp' ){
-    mailchimpSub(groupID,api_endpoint,access_token );
 
-}else if (snapshot.val().emailProvider =='mailerlite'){
-    mailerliteSub(groupID,tokenid );
-}
+    if (snapshot.val() != null && snapshot.val().emailProvider =='mailchimp' ){
+        access_token= snapshot.val().access_token;
+        groupID = snapshot.val().groupID;
+        api_endpoint = snapshot.val().api_endpoint;   
+        mailchimpSub(groupID,api_endpoint,access_token );
+    
+    }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){
+        tokenid = snapshot.val().tokenid;
+        groupID = snapshot.val().groupID;
+        
+        mailerliteSub(groupID,tokenid );
+    }
+    
 addBigQuery();
 });
 
@@ -238,8 +243,8 @@ function addBigQuery(){
         sessionID: sessionID ,
         emailID: emailID ,
         userName: name ,
-              blogUserID: userid,
-              Date: date
+        blogUserID: userid,
+        Date: date
             }];
     
             bigquery
