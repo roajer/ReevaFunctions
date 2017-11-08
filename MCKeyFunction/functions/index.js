@@ -4,6 +4,7 @@ const cors = require('cors')({origin: true});
 const BigQuery = require('@google-cloud/bigquery');
 var request = require('superagent');
 var querystring = require('querystring');
+var dateTime = require('node-datetime');
 
 // // Create and Deploy Your First Cloud Functions
 // // https://firebase.google.com/docs/functions/write-firebase-functions
@@ -107,6 +108,52 @@ request.post('https://login.mailchimp.com/oauth2/token')
   });
 });
 
+exports.getMailList = functions.https.onRequest((req, res) => {
+    
+      cors(req, res, () => {
+        var userid = req.query.userid;
+        var emailprovider = '';
+        admin.database().ref('/integrations/' + userid).once('value').then(function(snapshot) {
+            emailprovider = snapshot.val().emailProvider;
+            if(emailprovider != null && emailprovider == 'mailchimp'){
+
+                var api_endpoint = snapshot.val().api_endpoint;
+                var access_token = snapshot.val().access_token;
+
+                request.get(api_endpoint + '/3.0/lists')
+                .set('Accept', 'application/json')
+                .set('Authorization', 'OAuth ' + access_token)
+                    .end((err, result) => {
+                        if (err) {
+                            res.status(500).json(err);
+                        } else {
+                            res.json(result.body.lists);
+                        }
+                    });
+
+            } else if(emailprovider != null && emailprovider == 'mailerlite'){
+
+                var tokenid = snapshot.val().access_token;
+            request.get('http://api.mailerlite.com/api/v2/groups')
+                          //  .set('Accept', 'application/json')
+                            .set('X-MailerLite-ApiKey', access_token )
+                                .end((err, result) => {
+                                    if (err) {
+                                        res.status(500).json(err);
+                                    } else {
+                                        res.json(result.body);
+                                    }
+                                });
+            }
+            
+
+
+        });
+      });
+    });
+
+
+
 
 exports.mcGetListFunction = functions.https.onRequest((req, res) => {
 
@@ -185,11 +232,13 @@ admin.database().ref('/integrations/' + userid).once('value').then(function(snap
         api_endpoint = snapshot.val().api_endpoint;   
         mailchimpSub(groupID,api_endpoint,access_token );
     
-    }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){
+    }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){ 
         tokenid = snapshot.val().tokenid;
         groupID = snapshot.val().groupID;
         
         mailerliteSub(groupID,tokenid );
+    } else {
+        res.status(200).json("success");
     }
     
 addBigQuery();
@@ -238,13 +287,15 @@ request.post(api_endpoint + '/3.0/lists/'+integrationListID+'/members')
 }
 function addBigQuery(){
     
-    var date = new Date('YYYY-MM-DD');
+    var dt = dateTime.create();
+    var formatted = dt.format('Y-m-d');
+
       const rows = [{
         sessionID: sessionID ,
         emailID: emailID ,
         userName: name ,
         blogUserID: userid,
-        Date: date
+        Date: formatted
             }];
     
             bigquery

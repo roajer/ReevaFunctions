@@ -73,11 +73,11 @@ exports.productDelete = functions.database
                             
                             optin.objectID = optinID;
 
-                            index.saveObject({
-                                optinname: optin.productName,
-                                optindesc: optin.productDescription,
-                                optinurl: optin.productURL,
-                                optintags: optin.productTag,
+                            optinindex.saveObject({
+                                optinname: optin.optinName,
+                                optindesc: optin.optinDescription,
+                                optinurl: optin.optinURL,
+                             //   optintags: optin.optinTag,
                                 userId: userId,
                                 objectID: optinID,
                                 currentdate: date
@@ -94,7 +94,7 @@ exports.productDelete = functions.database
                     .ref(`/optin/{userId}/{optinID}`)
                     .onDelete(event => {
                         const optinID = event.params.optinID;
-                    index.deleteObject(optinID, function(err, content) {   
+                        optinindex.deleteObject(optinID, function(err, content) {   
                         if (err) {      throw err;    }
                     console.log('Firebase<>Algolia object deleted', optinID);
 });

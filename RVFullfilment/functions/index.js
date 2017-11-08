@@ -11,8 +11,11 @@ const BigQuery = require('@google-cloud/bigquery');
 var algoliasearch = require('algoliasearch');
 var client = algoliasearch('QQ0QXOBZRJ', '566a67d110d2a91c0453780cbcfa495e');
 var index = client.initIndex('products');
-var optinindex = client.initIndex('optin');
+
 var YQL = require('yql');
+var dateTime = require('node-datetime');
+
+var Fuse = require('fuse.js');
 // Note do below initialization tasks in index.js and
 // NOT in child functions:
 
@@ -30,29 +33,28 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
     let optinFlag = 'false';
     let emailID = '';
     var emailid = '';
+
     
     let userid = req.body.result.contexts.find(function(element){
         return ( (element.name = 'context_number_one') && element.parameters.userid)
        }).parameters.userid;
 
+
+    var forbidden = [userid, 'great', 'hi', 'hello', 'yes', 'sure' ];     
+    var speech ='';
+    var dataArray=[];
+
      /*  if (req.body.result.contexts.parameters.optinflag !== null && req.body.result.contexts.parameters.optinflag !== 'undefined'){
         let optinFlag = req.body.result.contexts.parameters.optinflag;    
        } */
-       if("optinflag" in req.body.result.contexts){
+   /*    if("optinflag" in req.body.result.contexts){
          optinFlag = req.body.result.contexts.find(function(element){
           return ( (element.name = 'context_number_one') && element.parameters.optinflag)
          }).parameters.optinflag; 
-        console.log("optinFlag is in parameters");
+        console.log("optinFlag is in parameters", optinFlag );
+        searchOptin(searchText);
       } 
-
-  
-
-    var forbidden = [userid, 'great', 'hi', 'hello', 'yes', 'sure' ];     
-    
-    var speech ='';
-
-    var dataArray=[];
-
+*/
     if(actionReq && actionReq === "optinyes"){
             emailSubscription();
      } else if (actionReq && actionReq === "ProductSearch"){
@@ -61,24 +63,24 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
               for (var h in req.body.result.parameters) {       
               if(req.body.result.parameters[h].length>0 && searchText.indexOf(req.body.result.parameters[h])==-1 
               && forbidden.indexOf(req.body.result.parameters[h]) ==-1) {
-                console.log('searchText: ',searchText);
                     searchText+= req.body.result.parameters[h]+" ";
                     console.log('works', searchText);
               }
               tempCnt+=1;
               }
-
+              
+              searchText = searchText.replace(/[^a-zA-Z0-9]/g,' ').replace(/ {2,}/g,' ');
               console.log(searchText);
               if (searchText && searchText.indexOf("") == -1){
                 speech = 'Well that one was bit tricky for me, can you try asking little differently? ';
                 stdResponse(dataArray, speech, 'false');
 
               }else {
-              if (optinFlag && optinFlag.indexOf('true') >-1){
+              /* if (optinFlag && optinFlag.indexOf('true') >-1){
                 searchOptin(searchText);
-              } else {
+              } else { */
                 searchProduct(searchText);
-              }
+//              }
             }
 
      } else if (actionReq && actionReq === "about") {
@@ -94,7 +96,13 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
      function emailSubscription(){
       let emailID = req.body.result.contexts.find(function(element){
           return (element.name = 'subscribe' && element.parameters['email.original'])
-         }).parameters['email.original'];
+         }).parameters['email.original']; 
+
+        /* return ( (element.name = 'subscribe') && element.parameters.email)
+        }).parameters.email;*/
+
+    
+         console.log("Email.ID", emailID);
 
          admin.database().ref('/integrations/' + userid).once('value').then(function(snapshot) {
           
@@ -102,13 +110,13 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
                   access_token= snapshot.val().access_token;
                   groupID = snapshot.val().groupID;
                   api_endpoint = snapshot.val().api_endpoint;   
-                  mailchimpSub(groupID,api_endpoint,access_token );
+                  mailchimpSub(groupID,api_endpoint,access_token, emailID );
               
               }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){
                   tokenid = snapshot.val().tokenid;
                   groupID = snapshot.val().groupID;
                   
-                  mailerliteSub(groupID,tokenid );
+                  mailerliteSub(groupID,tokenid, emailID );
               } else {
 
                 getOptinResponse(dataArray);
@@ -116,19 +124,19 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
 
 
               }
-              addToBigQuery(emailID, searchText);
+              addToBigQuery(emailID, searchText, '');
           });
 
      }
 
-     function mailerliteSub(groupID, tokenid){
+     function mailerliteSub(groupID, tokenid, emailID){
       
-      request.post('http://api.mailerlite.com/api/v2/groups/'+groupID+'/subscribers')
+      wsrequest.post('http://api.mailerlite.com/api/v2/groups/'+groupID+'/subscribers')
                       .set('Content-Type', 'application/json')
                       .set('X-MailerLite-ApiKey', tokenid )
                        .send(querystring.stringify({
                   'email': emailID,
-                  'name': name            
+                  'name': ''            
                 }))
                           .end((err, result) => {
                               if (err) {
@@ -143,16 +151,16 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
                           });
       }
       
-      function mailchimpSub(integrationListID,api_endpoint,access_token ){
+      function mailchimpSub(integrationListID,api_endpoint,access_token, emailID ){
       
-      request.post(api_endpoint + '/3.0/lists/'+integrationListID+'/members')
+        wsrequest.post(api_endpoint + '/3.0/lists/'+integrationListID+'/members')
                       .set('Accept', 'application/json')
                       .set('Authorization', 'OAuth ' + access_token)
                       .send({
                           'email_address': emailID,
                           'status': 'subscribed',
                           'merge_fields': {
-                                  'FNAME': name
+                                  'FNAME': ''
                                           }
                           })
                           .end((err, result) => {
@@ -172,34 +180,39 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
       }
   
   function searchProduct(searchText){
+    console.log("user ID", userid);
   //  userid = 'az4rdea6AXdFnvIUdIQDkjBveSG2';
    console.log('Just started search product', searchText);
-    admin.database().ref('payments/'+userid+'/plan/id').once('value').then(function(snapshot) {
+    admin.database().ref('/payments/'+userid+'/plan/id').once('value').then(function(snapshot) {
 
       console.log('Not sure what happend here', snapshot.val());
       if(snapshot.val() != null){
 
       
-      let tempresults= index.search(userid+' '+searchText, {
-          "hitsPerPage": "5",
+      let tempresults= index.search(searchText, {
+          "hitsPerPage": "3",
           "page": "0",
           "attributesToRetrieve": "*",
-          "facets": "[]"
+          "facets": "[]",
+          "filters": "userId:"+userid
            });
            tempresults.then(function(results) {
             console.log("Promise result for entity values : ",results);
-            if(results && results.nbHits >0) {                                    
+            if(results && results.nbHits >0) { 
+              
+              var rsldProd = '';
               //createWebResponse(results);
               for (var h in results.hits) {
+                console.log('Product name *** ', results.hits[h].productname);
+                console.log('Resolved Products', results.hits[h].productname+','+rsldProd);
             product={
-                "name":results.hits[h].ProductName,
-                "url": results.hits[h].ProductURL,
-                "imageurl" : results.hits[h].imageURL
+                "name":results.hits[h].productname,
+                "url": results.hits[h].produrl
                };
                   dataArray.push(product);
                 }
-                
-                speech = 'Here are some of the products we found for you';
+                console.log('dataArray', dataArray);
+                speech = 'Here are some of the products I found for you';
                 stdResponse(dataArray, speech, 'false');
         // call client.destroy() this when you need to stop the node.js client it will release any keepalived connection
              client.destroy();
@@ -221,7 +234,7 @@ exports.reevaFulfillment = functions.https.onRequest((req, res) => {
 
     });
   
-  addToBigQuery(emailID, searchText);
+  addToBigQuery(emailID, searchText, product);
    }
 
 
@@ -259,17 +272,47 @@ function wordpressSearch(searchText){
                             if (err) {
                                 res.status(500).json(err);
                             } else {
-                              
                                 var resultLimit=0;
-                                var cnt = Object.keys(result.body).length;
-                                console.log('**** PRINT WP RESULT****** ',cnt );
+
+                                var options = {
+                                  shouldSort: true,
+                                  tokenize: true,
+                                  includeScore: true,
+                                  threshold: 0.1,
+                                  location: 0,
+                                  distance: 100,
+                                  maxPatternLength: 32,
+                                  minMatchCharLength: 4,
+                                  keys: [
+                                    'title.rendered',
+                                    'excerpt.rendered'
+                                ]
+                                };
+                                console.log("Before calline fuse cnt", Object.keys(result.body).length);
+                                console.log("Before calline fuse", result.body);
+                                var fuse = new Fuse(result.body, options); // "list" is the item array
+                                var fuseresult = fuse.search(searchText);
+                                 console.log("result",fuseresult);
+
+                              //  var cnt = Object.keys(result.body).length;
+                              var cnt =Object.keys(fuseresult).length;
+                                console.log('new cnt', Object.keys(fuseresult).length);
+                                
                                 if(cnt !=0){
                                   for(var i = 0; i < cnt; i++) {
+
+                                    console.log('**** new result ****** ',fuseresult[0].item);
+                                    console.log('**** new item tit ****** ',fuseresult[0].item.title.rendered);
+                                    console.log('**** new item link ****** ',fuseresult[0].item.link);
+
                                   //if(((result.body[i].title.rendered).indexOf(searchText))>-1){
-                                    console.log('**** PRINT WP RESULT ****** ',result.body[i]);
+                                  //console.log('**** PRINT WP RESULT ****** ',result.body[i]);
                                     product = { 
-                                    "name": result.body[i].title.rendered,
-                                    "url": result.body[i].link
+                                  /*  "name": result.body[i].title.rendered,
+                                    "url": result.body[i].link, */
+                                  "name": fuseresult[i].item.title.rendered,
+                                  "url": fuseresult[i].item.link
+                                 //   "desc": result.body[i].excerpt.rendered
                                     };
                                    dataArray.push(product);
                                    resultLimit++;
@@ -278,6 +321,10 @@ function wordpressSearch(searchText){
                                    break;
                                  }
                                 }
+                                
+                                
+
+
                                 speech = 'Here are some of the posts you might be interested';
                                 stdResponse(dataArray, speech, 'false');
                               }else{
@@ -327,16 +374,20 @@ function stdResponse(dataArray, speech, emailid){
 
 }
 
-function addToBigQuery(emailID, searchText){
-  var date = new Date('YYYY-MM-DD');
+function addToBigQuery(emailID, searchText, resolvedProducts){
+  var dt = dateTime.create();
+  var formatted = dt.format('Y-m-d');
+
+
   
     const rows = [{
             sessionID: req.body.sessionId, 
             userQueries:req.body.result.resolvedQuery,
             resolvedEntities:searchText, 
+            resolvedProducts: resolvedProducts,
             blogUserID: userid,
-            emailID: emailID ,
-            Date: date
+            emailID: emailID,
+            Date: formatted
           }];
   
           bigquery
@@ -356,48 +407,6 @@ function addToBigQuery(emailID, searchText){
           });
       }
 
-      function searchOptin(searchText){
-        //  userid = 'az4rdea6AXdFnvIUdIQDkjBveSG2';
-         console.log('Just started search optin', searchText);
-          admin.database().ref('payments/'+userid+'/plan/id').once('value').then(function(snapshot) {
-      
-            console.log('Not sure what happend here', snapshot.val());
-            if(snapshot.val() != null){
-      
-            var dataArray=[];
-            let tempresults= optinindex.search(userid+' '+searchText, {
-                "hitsPerPage": "10",
-                "page": "0",
-                "attributesToRetrieve": "*",
-                "facets": "[]"
-                 });
-                 tempresults.then(function(results) {
-                  console.log("Promise result for entity values : ",results);
-                  if(results && results.nbHits >0) { 
-                    //createWebResponse(results);
-                    for (var h in results.hits) {
-                  product={
-                      "name":results.hits[0].optinName,
-                      "optinid" : results.hits[0].objectID
-                     };
-                        dataArray.push(product);
-                      }
-                      speech = results.hits[0].optinName;
-                      stdResponse(dataArray, speech, 'false');
-              // call client.destroy() this when you need to stop the node.js client it will release any keepalived connection
-                   client.destroy();
-                  }
-                })
-              } 
-          }).catch(
-            (err) => {
-
-            console.log(err);
-            speech ='error';
-            stdResponse(dataArray, speech, 'false');
-          });
-     
-         }
 
          function aboutus(){
           admin.database().ref('users/'+userid+'/aboutus').once('value').then(function(snapshot) {
