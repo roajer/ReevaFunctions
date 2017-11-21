@@ -98,7 +98,7 @@ if (snapshot.val().popupmsg != null){
                         msg: response.result.fulfillment.speech,
                         subtitle: snapshot.val().offer,
                         title: snapshot.val().name,
-                        optinid: response.result.fulfillment.optinid,
+                        optinid: response.result.fulfillment.messages[0].payload.optinid,
                         imgurl: snapshot.val().imageurl,
                         triggertext: triggermsg,
                         plan: 'paid',
