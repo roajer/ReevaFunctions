@@ -233,8 +233,8 @@ admin.database().ref('/integrations/' + userid).once('value').then(function(snap
         mailchimpSub(groupID,api_endpoint,access_token );
     
     }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){ 
-        tokenid = snapshot.val().tokenid;
-        groupID = snapshot.val().groupID;
+        tokenid = snapshot.val().access_token;
+        groupID = snapshot.val().listId;
         
         mailerliteSub(groupID,tokenid );
     } else {
@@ -249,12 +249,13 @@ function mailerliteSub(groupID, tokenid){
 request.post('http://api.mailerlite.com/api/v2/groups/'+groupID+'/subscribers')
                 .set('Content-Type', 'application/json')
                 .set('X-MailerLite-ApiKey', tokenid )
-                 .send(querystring.stringify({
+                 .send({
             'email': emailID,
             'name': name            
-          }))
+          })
                     .end((err, result) => {
                         if (err) {
+                            console.error(err);
                             res.status(500).json(err);
                         } else {
                             res.json(result.body);

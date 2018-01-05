@@ -93,15 +93,29 @@ if (snapshot.val().popupmsg != null){
             request.on('response', function(response) {
                 console.log('response', response);
                 console.log('response.result', response.result.fulfillment);
+                var popupmessage = '';
+                var optinID ='';
+                          
+
                 admin.database().ref(`/users/${UserID}`).once('value').then(snapshot => {
+                    if (response.result.fulfillment.messages[0].type === 0) {
+                        popupmessage = snapshot.val().popupmsg;
+                        optinID = 'default';
+                     } else if (response.result.fulfillment.messages[0].type === 4){
+                        popupmessage = response.result.fulfillment.speech;
+                        optinID = response.result.fulfillment.messages[0].payload.optinid;
+                     };   
+                     console.log('popupmessage', popupmessage);
+                     console.log('optinID', optinID);
                     var responseMsg = JSON.stringify({
-                        msg: response.result.fulfillment.speech,
+                        msg: popupmessage,
                         subtitle: snapshot.val().offer,
                         title: snapshot.val().name,
-                        optinid: response.result.fulfillment.messages[0].payload.optinid,
+                        optinid: optinID,
                         imgurl: snapshot.val().imageurl,
                         triggertext: triggermsg,
                         plan: 'paid',
+                        brand: snapshot.val().brand,
                         showchat: true
                     });
                     console.log('responseMsg', responseMsg);
@@ -119,16 +133,14 @@ if (snapshot.val().popupmsg != null){
                         imgurl: snapshot.val().imageurl,
                         optinid: 'default',
                         triggertext: triggermsg,
+                        brand: snapshot.val().brand,
                         plan: 'paid',
                         showchat: true
                     });
-    
-                    res.send(responseMsg);
+                  res.send(responseMsg);
                 });
-
-                console.log(error);
+                console.error(error);
             });
-
             request.end();
         }
 
@@ -217,7 +229,7 @@ exports.OptinFulfillment = functions.https.onRequest((req, res) => {
           }).catch(
             (err) => {
 
-            console.log('Error', err);
+            console.error('Error', err);
            defaultOptin();
           });
      

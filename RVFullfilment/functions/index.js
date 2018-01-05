@@ -13,6 +13,8 @@ var algoliasearch = require('algoliasearch');
 var client = algoliasearch('QQ0QXOBZRJ', '566a67d110d2a91c0453780cbcfa495e');
 var index = client.initIndex('products');
 
+var querystring = require('querystring');
+
 var YQL = require('yql');
 var dateTime = require('node-datetime');
 var apiai = require("apiai");
@@ -43,7 +45,7 @@ exports.reevaFulfillmentv2 = functions.https.onRequest((req, res) => {
        }).parameters.userid;
        */
 
-    var forbidden = [ 'great', 'hi', 'hello', 'yes', 'sure' ];     
+    var forbidden = [ 'great', 'hi', 'hello', 'yes', 'sure', 'post', 'posts', 'page', 'pages', 'blog' ];     
     var speech ='';
     var dataArray=[];
 
@@ -234,8 +236,8 @@ exports.reevaRequest = functions.https.onRequest((req, res) => {
                   mailchimpSub(groupID,api_endpoint,access_token, emailID );
               
               }else if (snapshot.val() != null && snapshot.val().emailProvider =='mailerlite'){
-                  tokenid = snapshot.val().tokenid;
-                  groupID = snapshot.val().groupID;
+                  tokenid = snapshot.val().access_token;
+                  groupID = snapshot.val().listId;
                   
                   mailerliteSub(groupID,tokenid, emailID );
               } else {
@@ -245,24 +247,26 @@ exports.reevaRequest = functions.https.onRequest((req, res) => {
               addToBigQuery(emailID, searchText, '');
           }).catch(
             (err) => {
-            console.log(err);
-            speech = 'Seems like there was some problem, can you try asking differently?';
+            console.error(err);
+            speech = 'There was a error with the subscription, please try again later.';
             stdResponse(dataArray, speech, 'false');
           });
 
      }
 
   function mailerliteSub(groupID, tokenid, emailID){
+    console.log('tokenid',tokenid);
     
     wsrequest.post('http://api.mailerlite.com/api/v2/groups/'+groupID+'/subscribers')
                     .set('Content-Type', 'application/json')
                     .set('X-MailerLite-ApiKey', tokenid )
-                     .send(querystring.stringify({
+                     .send({
                 'email': emailID,
                 'name': ''            
-              }))
+              })
               .end((err, result) => {
                   if (err) {
+                    console.error(err);
                       //res.status(500).json(err);
                       speech = 'There was a error with the subscription, please try again later.';
                       stdResponse(dataArray, speech, 'false');
@@ -291,7 +295,7 @@ exports.reevaRequest = functions.https.onRequest((req, res) => {
                               speech = 'There was a error with the subscription, please try again later.';
                               stdResponse(dataArray, speech, 'false');
                                 //res.status(500).json(err);
-                                console.log(err);
+                                console.error(err);
                             } else {
                                 getOptinResponse(dataArray);
                             }
@@ -459,7 +463,7 @@ exports.reevaRequest = functions.https.onRequest((req, res) => {
                       break;
                     }
                   }
-                  speech = 'Could not find exact match, but here are some generic ones related to your question';
+                  speech = 'Could not find exact match, but here are some generic posts that you might be interested.';
                   stdResponse(dataArray, speech, 'false');
                   addToBigQuery(emailID, searchText, '');
                 }
@@ -469,7 +473,7 @@ exports.reevaRequest = functions.https.onRequest((req, res) => {
                     });
             }).catch(
               (err) => {
-              console.log(err);
+              console.error(err);
               speech = 'Seems like there was some problem, can you try asking differently?';
               stdResponse(dataArray, speech, 'false');
             });
